@@ -13,27 +13,58 @@ export function PublicShop({ shopId }: { shopId: string }) {
   useEffect(() => {
     async function fetchShop() {
       try {
-        const { data, error } = await supabase.functions.invoke("shop", {
-          body: { action: "get-state", shopId }
-        });
+        // 1. Resolve shop row from public shop_id (varchar)
+        const { data: shopRow, error: shopErr } = await supabase
+          .from("shops")
+          .select("id, owner_id, shop_name, owner_name, phone, address, onboarding_profile")
+          .eq("shop_id", shopId)
+          .maybeSingle();
 
-        if (error) throw error;
-        
-        // Map backend state to PublicShopData
-        const publicShop: PublicShopData = {
+        if (shopErr || !shopRow) throw new Error("Shop not found");
+
+        // 2. Fetch products — products.shop_id stores the owner_id UUID
+        const { data: productRows, error: prodErr } = await supabase
+          .from("products")
+          .select("id, name, category, price, description, stock, image")
+          .eq("shop_id", shopRow.owner_id);
+
+        if (prodErr) throw prodErr;
+
+        const products: Product[] = (productRows ?? []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category ?? "",
+          price: Number(p.price),
+          description: p.description ?? "",
+          stock: p.stock ?? 0,
+          image: p.image ?? "",
+        }));
+
+        // 3. Try edge function for delivery zones (non-fatal)
+        let deliveryZones: DeliveryZone[] = [];
+        try {
+          const { data: edgeData } = await supabase.functions.invoke("shop", {
+            body: { action: "get-state", shopId },
+          });
+          if (edgeData?.deliveryZones) deliveryZones = edgeData.deliveryZones;
+        } catch {
+          // ignore — delivery zones are optional
+        }
+
+        const profile = shopRow.onboarding_profile as Record<string, string> | null;
+        setShop({
           shopId,
-          businessName: data.config.shopName,
-          description: data.config.description || "Welcome to our shop!",
-          paymentInfo: data.config.paymentInfo || "We accept KPay and WavePay.",
-          deliveryInfo: data.config.deliveryInfo || "Delivery available across Yangon.",
-          products: data.products,
-          deliveryZones: data.deliveryZones,
-        };
-        
-        setShop(publicShop);
-      } catch (err: any) {
+          businessName: shopRow.shop_name ?? "Shop",
+          description: profile?.description ?? "Welcome to our shop!",
+          paymentInfo: profile?.payment_method ?? "We accept KPay and WavePay.",
+          deliveryInfo: profile?.delivery_method ?? "Delivery available across Yangon.",
+          products,
+          deliveryZones,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Shop not found";
         console.error("Failed to load shop:", err);
-        setError(err.message || "Shop not found");
+        setError(msg);
       } finally {
         setLoading(false);
       }
