@@ -227,7 +227,7 @@ async function handleAiStrategy(ctx: ShopContext, body: Record<string, unknown>,
     });
 
     const aiRes = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3.1-flash-lite",
       contents: `Generate SME strategy for:\n${JSON.stringify({
         revenue: totalRevenue,
         orders: ctx.state.orders.length,
@@ -265,7 +265,7 @@ async function handleMarketingInsights(ctx: ShopContext, body: Record<string, un
     const ai = ctx.getGemini();
     const prompt = `Campaign: ${campaignType}. Products: ${selected.map((p) => p.name).join(", ")}. Return JSON with trendingProducts, recommendations, copywriting, bannerPrompt.`;
     const aiRes = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3.1-flash-lite",
       contents: prompt,
       config: { temperature: 0.4, responseMimeType: "application/json" },
     });

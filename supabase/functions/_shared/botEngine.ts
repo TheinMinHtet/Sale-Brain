@@ -254,7 +254,7 @@ RULES FOR DIALOGUE:
     const geminiInput = `CONVERSATION HISTORIC:\n${conversationHistory}\n\nCustomer just sent: "${content}"\n\nCandy, reply in beautiful customer-friendly dialogue:`;
 
     let aiResponse;
-    const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+    const modelsToTry = ["gemini-3.1-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
     let lastErr = null;
 
     for (const modelName of modelsToTry) {
