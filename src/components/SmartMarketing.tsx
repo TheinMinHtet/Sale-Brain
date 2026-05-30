@@ -320,7 +320,7 @@ export function SmartMarketing({ state, lang = "en" }: SmartMarketingProps) {
   const fetchMarketingInsights = async (campaign: string) => {
     setLoading(true);
     try {
-      const data = getAiMarketingInsights(campaign, selectedProductIds);
+      const data = await getAiMarketingInsights(campaign, selectedProductIds);
       if (data.success && data.insights) {
         setInsights(data.insights as unknown as MarketingInsights);
         // Prepopulate text poster configurations based on AI descriptions
@@ -383,7 +383,7 @@ export function SmartMarketing({ state, lang = "en" }: SmartMarketingProps) {
     setAiImageLoading(true);
     setAiImageError(null);
     try {
-      const data = getAiMarketingImage(selectedPreset);
+      const data = await getAiMarketingImage(selectedPreset, insights.bannerPrompt);
       if (data.success && data.imageUrl) {
         setAiImage(data.imageUrl);
       } else {

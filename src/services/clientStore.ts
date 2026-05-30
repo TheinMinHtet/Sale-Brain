@@ -2,6 +2,7 @@ import { cloneDefaultState, DEFAULT_STATE } from "../data/defaultState";
 import type { Product, ShopConfig, SystemState } from "../types";
 import { processCustomerMessage } from "./botSimulator";
 import { getMarketingImageUrl, getMarketingInsights, getStrategyBriefing } from "./fallbackAi";
+import { invokeApi } from "./api";
 
 const STORAGE_KEY = "sales_brain_state_v1";
 
@@ -174,17 +175,35 @@ export function botSimulateInput(body: {
   return result;
 }
 
-export function getAiStrategy(lang: "en" | "my") {
+export async function getAiStrategy(lang: "en" | "my") {
+  try {
+    const data = await invokeApi<{ strategy: string }>("ai/strategy", { lang });
+    if (data.strategy) return { success: true, strategy: data.strategy };
+  } catch (err) {
+    console.warn("AI Strategy API failed, using fallback:", err);
+  }
   const state = load();
   return { success: true, strategy: getStrategyBriefing(state, lang) };
 }
 
-export function getAiMarketingInsights(campaignType: string, productIds: string[]) {
+export async function getAiMarketingInsights(campaignType: string, productIds: string[]) {
+  try {
+    const data = await invokeApi<{ insights: any }>("ai/marketing/insights", { campaignType, productIds });
+    if (data.insights) return { success: true, insights: data.insights };
+  } catch (err) {
+    console.warn("AI Marketing Insights API failed, using fallback:", err);
+  }
   const state = load();
   return { success: true, insights: getMarketingInsights(state, campaignType, productIds) };
 }
 
-export function getAiMarketingImage(campaignType: string) {
+export async function getAiMarketingImage(campaignType: string, prompt?: string) {
+  try {
+    const data = await invokeApi<{ imageUrl: string }>("ai/marketing/image", { prompt: prompt || `Professional marketing poster for ${campaignType}` });
+    if (data.imageUrl) return { success: true, imageUrl: data.imageUrl };
+  } catch (err) {
+    console.warn("AI Marketing Image API failed, using fallback:", err);
+  }
   return {
     success: true,
     imageUrl: getMarketingImageUrl(campaignType),

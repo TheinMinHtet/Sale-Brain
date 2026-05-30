@@ -685,7 +685,7 @@ export default function App() {
   const fetchAiStrategy = async (_force: boolean = false) => {
     setLoadingAi(true);
     try {
-      const data = store.getAiStrategy(lang);
+      const data = await store.getAiStrategy(lang);
       setAiAnalysisText(data.strategy);
     } catch (err) {
       console.warn("Failed to load AI strategy briefing:", err);
