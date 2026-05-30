@@ -38,6 +38,8 @@
 |----|-------|------|-----------|
 | SUCCESS-001 | Onboarding → `shops` table (Postgres) | 2026-05-29 | `shopRecord.ts`, `Onboarding.tsx`, `App.tsx`, `types.ts` |
 | SUCCESS-002 | Full `onboarding_profile` round-trip (no missing fields) | 2026-05-29 | `shopRecord.ts`, `Onboarding.tsx`, `types.ts` |
+| SUCCESS-003 | Public shop page fetches products directly from Supabase | 2026-05-30 | `PublicShop.tsx` |
+| SUCCESS-004 | State-driven Myanmar chatbot with local fallback (no API key) | 2026-05-30 | `ShopChatbot.tsx` |
 
 ---
 
@@ -188,6 +190,66 @@ src/components/Onboarding.tsx → mainCustomers / ageGroups options; step 1 vali
 
 ---
 
+## [SUCCESS-003]: Public shop page fetches products directly from Supabase
+
+* **Goal:** `/shop/<shopId>` public page shows the shop's products without relying on the Edge Function.
+
+* **Root cause of original failure (two bugs):**
+  1. `PublicShop.tsx` called only the `shop` Edge Function for products — if it failed, products were empty.
+  2. After switching to direct Supabase queries, `owner_id` was missing from the `.select()` string, so `shopRow.owner_id` was `undefined` and the products query silently returned nothing.
+
+* **Schema facts (verified via MCP):**
+  - `shops.shop_id` (varchar) — the public URL token
+  - `shops.id` (uuid) — internal primary key
+  - `shops.owner_id` (uuid) — the auth user UUID
+  - `products.shop_id` (uuid) — stores the **owner_id**, NOT `shops.id`
+
+* **Implementation steps (repeat in order):**
+
+1. Query `shops` — select `id, owner_id, shop_name, owner_name, phone, address, onboarding_profile` where `shop_id = <url token>`. **Must include `owner_id`.**
+2. Query `products` — `.eq("shop_id", shopRow.owner_id)` (not `shopRow.id`).
+3. Call Edge Function only for delivery zones (non-fatal, wrapped in try/catch).
+4. Map `productRows` to `Product[]` with `Number(p.price)` cast.
+
+* **Reference code:** `src/components/PublicShop.tsx`
+
+* **Enforcement rule:** When fetching products for a public shop, always join via `products.shop_id = shops.owner_id`. Never use `shops.id` for this join. Always include `owner_id` in the shops `.select()`.
+
+---
+
+## [SUCCESS-004]: State-driven Myanmar chatbot with local rule-based fallback
+
+* **Goal:** `ShopChatbot` follows a conversation state machine and works even when `VITE_GEMINI_API_KEY` is missing or the Edge Function is down.
+
+* **Architecture (3-tier fallback):**
+  1. Supabase Edge Function (`shop` → `action: "chat"`) — primary
+  2. Direct Gemini API fetch with `VITE_GEMINI_API_KEY` — secondary
+  3. `buildLocalReply()` rule-based Myanmar responses — always-available fallback
+
+* **Conversation states:** `introduction → intent_classification → advertise / show_product → will_it_buy → stock_check → transaction → terminate_warm / terminate_notify`
+
+* **Tag protocol** — bot appends hidden tags stripped before display:
+  - `[STATE:x]` → calls `setConvState(x)`
+  - `[ACTION:ADD, ID:x]` → adds product to cart
+  - `[ACTION:CHECKOUT]` → transitions to `transaction`
+  - `[PREF:LIKE, ID:x]` / `[PREF:DISLIKE, ID:x]` → saved to localStorage
+
+* **User preference memory:** `localStorage` key `shop_prefs_<shopId>` — persists liked/disliked products, past orders, last visit across sessions; injected into system prompt for personalization.
+
+* **`buildLocalReply()` keyword routing (no API needed):**
+  - Delivery/shipping keywords → COD urban / KPay regional answer
+  - Payment keywords → payment methods list
+  - Checkout/order/buy → cart total + payment guidance
+  - Product name match → price + stock + `[PREF:LIKE]` tag
+  - Greeting → welcome + top 2 product highlights
+  - Product/catalog keywords → full product list
+
+* **Reference code:** `src/components/ShopChatbot.tsx` — `buildSystemPrompt()`, `buildLocalReply()`, `applyTags()`, `sendMessage()`
+
+* **Enforcement rule:** Never show a raw error message to the customer. If both Edge Function and Gemini fail, always fall through to `buildLocalReply()`. The API key check must route to local fallback, not an error string.
+
+---
+
 ## 🔄 Repeat Loop
 
 ```
@@ -228,5 +290,5 @@ Then add a row to the **Success Log** table at the top.
 
 ---
 
-*Last Updated: 2026-05-29 (SUCCESS-002: full onboarding_profile round-trip)*
+*Last Updated: 2026-05-30 (SUCCESS-004: state-driven Myanmar chatbot + local fallback)*
 *Maintained by: Development Team*
