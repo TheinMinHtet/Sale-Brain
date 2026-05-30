@@ -1,5 +1,5 @@
 import { cloneDefaultState, DEFAULT_STATE } from "../data/defaultState";
-import type { Product, ShopConfig, SystemState } from "../types";
+import type { Product, ShopConfig, SystemState, DeliveryZone, DeliveryZoneFormData } from "../types";
 import { processCustomerMessage } from "./botSimulator";
 import { getMarketingImageUrl, getMarketingInsights, getStrategyBriefing } from "./fallbackAi";
 import { invokeApi } from "./api";
@@ -14,12 +14,31 @@ function load(): SystemState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       memoryState = { ...cloneDefaultState(), ...JSON.parse(raw) };
+      
+      // Initialize deliveryZones if empty and it's a new load
+      if (!memoryState.deliveryZones || memoryState.deliveryZones.length === 0) {
+        memoryState.deliveryZones = [
+          { id: "d1", township_name: "Yankin", rate: 2000, estimated_transit_timeline: "1-2 Days", region: "Yangon", division: "Yangon", created_at: new Date().toISOString() },
+          { id: "d2", township_name: "Tamwe", rate: 2500, estimated_transit_timeline: "1-2 Days", region: "Yangon", division: "Yangon", created_at: new Date().toISOString() },
+          { id: "d3", township_name: "North Dagon", rate: 3000, estimated_transit_timeline: "2-3 Days", region: "Yangon", division: "Yangon", created_at: new Date().toISOString() },
+        ];
+        save();
+      }
+      
       return memoryState;
     }
   } catch {
     /* ignore */
   }
   memoryState = cloneDefaultState();
+  
+  // Seed default delivery zones for the very first time
+  memoryState.deliveryZones = [
+    { id: "d1", township_name: "Yankin", rate: 2000, estimated_transit_timeline: "1-2 Days", region: "Yangon", division: "Yangon", created_at: new Date().toISOString() },
+    { id: "d2", township_name: "Tamwe", rate: 2500, estimated_transit_timeline: "1-2 Days", region: "Yangon", division: "Yangon", created_at: new Date().toISOString() },
+    { id: "d3", township_name: "North Dagon", rate: 3000, estimated_transit_timeline: "2-3 Days", region: "Yangon", division: "Yangon", created_at: new Date().toISOString() },
+  ];
+  
   save();
   return memoryState;
 }
@@ -93,18 +112,24 @@ export function mutateProducts(action: string, product: Partial<Product> & { id?
 
 export function mutateDeliveryZone(
   action: string,
-  payload: { zone?: { township: string; rate: number; deliveryTime: string }; index?: number }
+  payload: { zone?: DeliveryZoneFormData; id?: string }
 ) {
-  // Deprecated: Delivery zones now managed via API
-  // const state = load();
-  // if (action === "add" && payload.zone) {
-  //   state.deliveryZones.push(payload.zone);
-  // } else if (action === "delete" && payload.index !== undefined) {
-  //   state.deliveryZones.splice(payload.index, 1);
-  // }
-  // save();
-  // return state;
-  return load();
+  const state = load();
+  if (action === "add" && payload.zone) {
+    state.deliveryZones.unshift({
+      ...payload.zone,
+      id: Math.random().toString(36).substr(2, 9),
+      created_at: new Date().toISOString()
+    });
+  } else if (action === "delete" && payload.id) {
+    state.deliveryZones = state.deliveryZones.filter((z) => z.id !== payload.id);
+  } else if (action === "update" && payload.id && payload.zone) {
+    state.deliveryZones = state.deliveryZones.map((z) =>
+      z.id === payload.id ? { ...z, ...payload.zone } : z
+    );
+  }
+  save();
+  return state;
 }
 
 export function updateOrderStatus(orderId: string, status: "confirmed" | "cancelled" | "completed") {

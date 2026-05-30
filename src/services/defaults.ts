@@ -8,9 +8,8 @@ export function createEmptyShopState(): SystemState {
       phone: "",
       currency: "MMK",
       telegramBotToken: "",
-      telegramBotUsername: "",
-      messengerBotId: "",
-      messengerBotName: "",
+      telegramBotUsername: "Jjkql_bot",
+
       onboardingCompleted: false,
     },
     products: [],
