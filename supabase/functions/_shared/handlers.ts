@@ -235,8 +235,8 @@ async function handleAiStrategy(ctx: ShopContext, body: Record<string, unknown>,
         products: ctx.state.products.map((p) => ({ name: p.name, stock: p.stock })),
       })}`,
       config: {
-        systemInstruction: `You are Sales Brain advisor. Write plain text in ${lang === "my" ? "Burmese" : "English"}. No markdown hashes or asterisks. Under 280 words.`,
-        temperature: 0.3,
+        systemInstruction: `You are Sales Brain advisor. Write a detailed, comprehensive, and professional SME strategy report in ${lang === "my" ? "Burmese" : "English"}. Provide deep insights and actionable steps. No markdown hashes or asterisks. Aim for a thorough analysis of around 600-800 words.`,
+        temperature: 0.4,
       },
     });
 
@@ -263,11 +263,11 @@ async function handleMarketingInsights(ctx: ShopContext, body: Record<string, un
 
   try {
     const ai = ctx.getGemini();
-    const prompt = `Campaign: ${campaignType}. Products: ${selected.map((p) => p.name).join(", ")}. Return JSON with trendingProducts, recommendations, copywriting, bannerPrompt.`;
+    const prompt = `Campaign: ${campaignType}. Products: ${selected.map((p) => p.name).join(", ")}. Return JSON with trendingProducts, recommendations, copywriting (provide detailed, long-form, and persuasive captions for Facebook, Instagram, and a full professional email template), bannerPrompt.`;
     const aiRes = await ai.models.generateContent({
       model: "gemini-3.1-flash-lite",
       contents: prompt,
-      config: { temperature: 0.4, responseMimeType: "application/json" },
+      config: { temperature: 0.5, responseMimeType: "application/json" },
     });
     const insights = JSON.parse(aiRes.text?.trim() || "{}");
     return { success: true, insights };
